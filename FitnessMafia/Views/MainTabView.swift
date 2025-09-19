@@ -16,7 +16,7 @@ struct MainTabView: View {
                 .tabItem {
                     VStack {
                         Image(systemName: selectedTab == 0 ? "calendar.circle.fill" : "calendar")
-                        Text("Programs")
+                        Text("Programas")
                     }
                 }
                 .tag(0)
@@ -25,7 +25,7 @@ struct MainTabView: View {
                 .tabItem {
                     VStack {
                         Image(systemName: selectedTab == 1 ? "figure.strengthtraining.traditional.circle.fill" : "figure.strengthtraining.traditional")
-                        Text("Exercises")
+                        Text("Ejercicios")
                     }
                 }
                 .tag(1)
@@ -34,7 +34,7 @@ struct MainTabView: View {
                 .tabItem {
                     VStack {
                         Image(systemName: selectedTab == 2 ? "person.circle.fill" : "person.circle")
-                        Text("Profile")
+                        Text("Perfil")
                     }
                 }
                 .tag(2)

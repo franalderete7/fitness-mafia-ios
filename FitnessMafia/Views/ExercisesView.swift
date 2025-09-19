@@ -37,6 +37,20 @@ extension Exercise {
         }
     }
 
+    var categoryNameSpanish: String {
+        switch categoryId {
+        case 1: return "Pecho"
+        case 2: return "Espalda"
+        case 3: return "Piernas"
+        case 4: return "Hombros"
+        case 5: return "Brazos"
+        case 6: return "Core"
+        case 7: return "Cardio"
+        case 8: return "Cuerpo Completo"
+        default: return "Otro"
+        }
+    }
+
     var formattedDuration: String? {
         guard let seconds = defaultDurationSeconds else { return nil }
         let minutes = seconds / 60
@@ -55,7 +69,7 @@ struct HorizontalExerciseCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Exercise Image
+            // Exercise Image - Now shows actual image from database
             ZStack {
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
@@ -63,9 +77,35 @@ struct HorizontalExerciseCard: View {
                     .frame(width: 80, height: 80)
                     .cornerRadius(8)
 
-                Image(systemName: "dumbbell.fill")
-                    .font(.title2)
-                    .foregroundColor(exercise.displayColor)
+                if let imageUrl = exercise.imageUrl, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .tint(.white)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        case .failure(_):
+                            // Fallback to icon if image fails to load
+                            Image(systemName: "dumbbell.fill")
+                                .font(.title2)
+                                .foregroundColor(exercise.displayColor)
+                        @unknown default:
+                            Image(systemName: "dumbbell.fill")
+                                .font(.title2)
+                                .foregroundColor(exercise.displayColor)
+                        }
+                    }
+                } else {
+                    // No image URL provided, show icon
+                    Image(systemName: "dumbbell.fill")
+                        .font(.title2)
+                        .foregroundColor(exercise.displayColor)
+                }
             }
 
             // Exercise Info
@@ -74,7 +114,7 @@ struct HorizontalExerciseCard: View {
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                Text(exercise.categoryName)
+                Text(exercise.categoryNameSpanish)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
@@ -108,7 +148,7 @@ struct HorizontalExerciseCard: View {
 struct ExercisesView: View {
     @State private var selectedExercise: Exercise? = nil
     @State private var searchText = ""
-    @State private var selectedCategory = "All"
+    @State private var selectedCategory = "Todos"
     @State private var exercises: [Exercise] = []
     @State private var categories: [ExerciseCategory] = []
     @State private var isLoading = true
@@ -117,16 +157,43 @@ struct ExercisesView: View {
     private let exerciseService = ExerciseService()
 
     var filteredExercises: [Exercise] {
-        exercises.filter { exercise in
+        let filtered = exercises.filter { exercise in
             let matchesSearch = searchText.isEmpty || exercise.name.localizedCaseInsensitiveContains(searchText)
-            let matchesCategory = selectedCategory == "All" || exercise.categoryName == selectedCategory
+
+            // For "Todos", show all exercises
+            if selectedCategory == "Todos" {
+                return matchesSearch
+            }
+
+            // For specific categories, match the Spanish name
+            let matchesCategory = exercise.categoryNameSpanish == selectedCategory
             return matchesSearch && matchesCategory
         }
+
+        print("DEBUG: Filtering - selectedCategory: '\(selectedCategory)', searchText: '\(searchText)', exercises: \(exercises.count), filtered: \(filtered.count)")
+        return filtered
     }
 
     var categoryNames: [String] {
-        let names = categories.map { $0.name }
-        return ["All"] + names
+        // If categories are not loaded yet, return basic Spanish categories
+        if categories.isEmpty {
+            return ["Todos", "Pecho", "Espalda", "Piernas", "Hombros", "Brazos", "Core", "Cardio", "Cuerpo Completo"]
+        }
+
+        let spanishNames = categories.map { category in
+            switch category.id {
+            case 1: return "Pecho"
+            case 2: return "Espalda"
+            case 3: return "Piernas"
+            case 4: return "Hombros"
+            case 5: return "Brazos"
+            case 6: return "Core"
+            case 7: return "Cardio"
+            case 8: return "Cuerpo Completo"
+            default: return category.name // Fallback to original name
+            }
+        }
+        return ["Todos"] + spanishNames
     }
 
     private func loadData() async {
@@ -138,17 +205,22 @@ struct ExercisesView: View {
             let exercises = try await exerciseService.fetchAll()
             let categories = try await exerciseService.getExerciseCategories() ?? []
 
+            print("DEBUG: Loaded \(exercises.count) exercises and \(categories.count) categories")
+
             await MainActor.run {
                 self.exercises = exercises
                 self.categories = categories
                 self.isLoading = false
+                print("DEBUG: UI updated - exercises count: \(self.exercises.count), categories count: \(self.categories.count)")
             }
         } catch let error as DatabaseError {
+            print("DEBUG: DatabaseError - \(error.localizedDescription)")
             await MainActor.run {
                 self.error = error
                 self.isLoading = false
             }
         } catch {
+            print("DEBUG: Unknown error - \(error.localizedDescription)")
             await MainActor.run {
                 self.error = .unknownError(error)
                 self.isLoading = false
@@ -162,12 +234,12 @@ struct ExercisesView: View {
                 VStack(spacing: 20) {
                     // Header
                     VStack(spacing: 8) {
-                        Text("Exercise Library")
+                        Text("Biblioteca de Ejercicios")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text("Discover exercises for every muscle group and fitness level to build your perfect workout routine.")
+                        Text("Descubre ejercicios para todos los grupos musculares y niveles de condición física para construir tu rutina perfecta de entrenamiento.")
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -178,7 +250,7 @@ struct ExercisesView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                        TextField("Search exercises...", text: $searchText)
+                        TextField("Buscar ejercicios...", text: $searchText)
                             .foregroundColor(.primary)
                         Spacer()
                     }
@@ -212,7 +284,7 @@ struct ExercisesView: View {
                         VStack(spacing: 16) {
                             ProgressView()
                                 .scaleEffect(1.5)
-                            Text("Loading exercises...")
+                            Text("Cargando ejercicios...")
                                 .foregroundColor(.secondary)
                         }
                         .frame(maxWidth: .infinity, minHeight: 200)
@@ -223,13 +295,13 @@ struct ExercisesView: View {
                             Image(systemName: "exclamationmark.triangle")
                                 .font(.largeTitle)
                                 .foregroundColor(.red)
-                            Text("Failed to load exercises")
+                            Text("Error al cargar ejercicios")
                                 .font(.headline)
                             Text(error.localizedDescription)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                            Button("Try Again") {
+                            Button("Intentar de Nuevo") {
                                 Task {
                                     await loadData()
                                 }
@@ -248,7 +320,7 @@ struct ExercisesView: View {
                             Image(systemName: "dumbbell")
                                 .font(.largeTitle)
                                 .foregroundColor(.secondary)
-                            Text("No exercises found")
+                            Text("No se encontraron ejercicios")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                         }
@@ -257,10 +329,20 @@ struct ExercisesView: View {
                     // Exercises List
                     else {
                         VStack(spacing: 16) {
+                            // Debug info
+                            Text("Debug: \(exercises.count) total, \(filteredExercises.count) filtered, selected: '\(selectedCategory)'")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+
                             ForEach(filteredExercises) { exercise in
                                 HorizontalExerciseCard(exercise: exercise)
                                     .onTapGesture {
                                         selectedExercise = exercise
+                                    }
+                                    .onAppear {
+                                        print("DEBUG: Rendering exercise: \(exercise.name), category: \(exercise.categoryNameSpanish)")
                                     }
                             }
                         }
@@ -269,8 +351,8 @@ struct ExercisesView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Exercises")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Ejercicios")
+                .navigationBarTitleDisplayMode(.inline)
             .background(Color(.systemGroupedBackground))
             .sheet(item: $selectedExercise) { exercise in
                 ExerciseDetailView(exercise: exercise)

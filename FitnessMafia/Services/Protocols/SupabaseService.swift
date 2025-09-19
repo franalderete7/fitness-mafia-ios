@@ -89,35 +89,6 @@ extension SupabaseService where Self: CrudService, Model.ID == Int {
 }
 
 /// Extension for services with composite primary keys
-extension SupabaseService where Self: CrudService {
-    /// Fetch by composite ID
-    func fetch(by id: BlockExerciseID) async throws -> Model where Model.ID == BlockExerciseID {
-        try await executeQuery {
-            let response: [Model] = try await self.client
-                .from(self.tableName)
-                .select()
-                .eq("block_id", value: id.blockId)
-                .eq("exercise_id", value: id.exerciseId)
-                .execute()
-                .value
-
-            guard let model = response.first else {
-                throw DatabaseError.notFound("Record with composite id not found")
-            }
-
-            return model
-        }
-    }
-
-    /// Delete by composite ID
-    func delete(_ id: BlockExerciseID) async throws where Model.ID == BlockExerciseID {
-        try await executeQuery {
-            try await self.client
-                .from(self.tableName)
-                .delete()
-                .eq("block_id", value: id.blockId)
-                .eq("exercise_id", value: id.exerciseId)
-                .execute()
-        }
-    }
-}
+// Note: Composite keys should be implemented in the concrete service that
+// knows the column names (e.g., a BlockExerciseService). Keeping this
+// protocol generic avoids hard-coding schema-specific knowledge here.
