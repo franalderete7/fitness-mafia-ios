@@ -232,19 +232,6 @@ struct ExercisesView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Text("Biblioteca de Ejercicios")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Text("Descubre ejercicios para todos los grupos musculares y niveles de condición física para construir tu rutina perfecta de entrenamiento.")
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.horizontal)
 
                     // Search Bar
                     HStack {
@@ -329,12 +316,6 @@ struct ExercisesView: View {
                     // Exercises List
                     else {
                         VStack(spacing: 16) {
-                            // Debug info
-                            Text("Debug: \(exercises.count) total, \(filteredExercises.count) filtered, selected: '\(selectedCategory)'")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
 
                             ForEach(filteredExercises) { exercise in
                                 HorizontalExerciseCard(exercise: exercise)

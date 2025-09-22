@@ -19,7 +19,7 @@ nonisolated struct Workout: BaseModel, Sendable {
     let createdAt: Date
     let updatedAt: Date
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case id = "workout_id"
         case name, description
         case estimatedDurationMinutes = "estimated_duration_minutes"
@@ -32,17 +32,17 @@ nonisolated struct Workout: BaseModel, Sendable {
     }
 }
 
-struct WorkoutBlockID: Hashable, Codable {
+nonisolated struct WorkoutBlockID: Hashable, Codable, Sendable {
     let workoutId: Int
     let blockId: Int
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case workoutId = "workout_id"
         case blockId = "block_id"
     }
 }
 
-struct WorkoutBlock: Codable, Identifiable, Hashable {
+nonisolated struct WorkoutBlock: Codable, Identifiable, Hashable, Sendable {
     var id: String { "\(workoutId)-\(blockId)" }
     let workoutId: Int
     let blockId: Int
@@ -50,7 +50,7 @@ struct WorkoutBlock: Codable, Identifiable, Hashable {
     let restAfterBlockSeconds: Int
     let createdAt: Date
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case workoutId = "workout_id"
         case blockId = "block_id"
         case orderInWorkout = "order_in_workout"

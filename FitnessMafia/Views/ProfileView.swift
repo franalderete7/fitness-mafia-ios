@@ -6,217 +6,300 @@
 //
 
 import SwiftUI
+import Supabase
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let subtitle: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-    }
-}
 
 struct ProfileView: View {
-    let userStats = [
-        (title: "Workouts", value: "24", subtitle: "This month", color: Color.blue),
-        (title: "Minutes", value: "1,248", subtitle: "Total time", color: Color.green),
-        (title: "Streak", value: "7", subtitle: "Days", color: Color.orange)
-    ]
-
+    @EnvironmentObject var authManager: AuthManager
+    @State private var isEditing = false
+    @State private var editedFirstName = ""
+    @State private var editedLastName = ""
+    @State private var editedUsername = ""
+    @State private var isLoading = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+    
+    
+    private func startEditing() {
+        if let user = authManager.currentUser {
+            editedFirstName = user.firstName ?? ""
+            editedLastName = user.lastName ?? ""
+            editedUsername = user.username
+        }
+        isEditing = true
+    }
+    
+    private func saveProfile() async {
+        guard let userId = authManager.currentUser?.id else { return }
+        
+        isLoading = true
+        showError = false
+        
+        do {
+            let updatedUser = User(
+                id: userId,
+                username: editedUsername,
+                email: authManager.currentUser?.email ?? "",
+                role: authManager.currentUser?.role ?? .user,
+                firstName: editedFirstName.isEmpty ? nil : editedFirstName,
+                lastName: editedLastName.isEmpty ? nil : editedLastName,
+                isActive: authManager.currentUser?.isActive ?? true,
+                createdAt: authManager.currentUser?.createdAt ?? Date(),
+                updatedAt: Date()
+            )
+            
+            try await SupabaseConfig.shared.client
+                .from("users")
+                .update(updatedUser)
+                .eq("user_id", value: userId)
+                .execute()
+            
+            // Reload user profile
+            await authManager.loadUserProfile()
+            isEditing = false
+            
+        } catch {
+            showError = true
+            errorMessage = "Error al guardar los cambios: \(error.localizedDescription)"
+        }
+        
+        isLoading = false
+    }
+    
+    private func cancelEditing() {
+        isEditing = false
+        editedFirstName = ""
+        editedLastName = ""
+        editedUsername = ""
+    }
+    
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Profile Header
-                    VStack(spacing: 16) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue.opacity(0.2))
-                                .frame(width: 80, height: 80)
-                            Image(systemName: "person.circle.fill")
-                                .font(.system(size: 80))
-                                .foregroundColor(.blue)
-                        }
-
-                        VStack(spacing: 4) {
-                            Text("Alex Johnson")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Fitness Enthusiast")
-                                .foregroundColor(.secondary)
-                            Text("Member since March 2024")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.top, 20)
-
-                    // Stats Grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                        ForEach(userStats, id: \.title) { stat in
-                            StatCard(
-                                title: stat.title,
-                                value: stat.value,
-                                subtitle: stat.subtitle,
-                                color: stat.color
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
-
-                    // Menu Sections
-                    VStack(spacing: 24) {
-                        // Fitness Goals
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Fitness Goals")
-                                .font(.headline)
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .edgesIgnoringSafeArea(.all)
+                
+                ScrollView {
+                    VStack(spacing: 32) {
+                        if showError {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                                .multilineTextAlignment(.center)
                                 .padding(.horizontal)
-
-                            VStack(spacing: 0) {
-                                ProfileMenuItem(title: "Weight Loss", subtitle: "Lose 5kg in 2 months", icon: "scalemass", color: .green)
-                                ProfileMenuItem(title: "Strength Training", subtitle: "Increase bench press by 20kg", icon: "figure.strengthtraining.traditional", color: .blue)
-                                ProfileMenuItem(title: "Cardio Endurance", subtitle: "Run 5km without stopping", icon: "figure.run", color: .orange)
-                            }
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(12)
-                            .padding(.horizontal)
+                                .padding(.vertical, 12)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(12)
+                                .padding(.horizontal, 20)
                         }
-
-                        // Settings & Preferences
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Settings")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            VStack(spacing: 0) {
-                                ProfileMenuItem(title: "Notifications", subtitle: "Workout reminders", icon: "bell", color: .purple)
-                                ProfileMenuItem(title: "Privacy", subtitle: "Data sharing preferences", icon: "hand.raised", color: .gray)
-                                ProfileMenuItem(title: "Units", subtitle: "kg, lbs, km, miles", icon: "ruler", color: .indigo)
-                                ProfileMenuItem(title: "Theme", subtitle: "Light, Dark, System", icon: "moon", color: .yellow)
-                            }
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(12)
-                            .padding(.horizontal)
-                        }
-
-                        // Achievements
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Achievements")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    AchievementBadge(title: "First Workout", icon: "star.fill", color: .yellow, earned: true)
-                                    AchievementBadge(title: "Week Streak", icon: "flame.fill", color: .orange, earned: true)
-                                    AchievementBadge(title: "Marathon", icon: "figure.run", color: .green, earned: false)
-                                    AchievementBadge(title: "Strength Master", icon: "dumbbell.fill", color: .blue, earned: false)
+                        
+                        // Profile Card
+                        VStack(spacing: 24) {
+                            // Profile Avatar and Basic Info
+                            VStack(spacing: 20) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.15))
+                                        .frame(width: 120, height: 120)
+                                    
+                                    Image(systemName: "person.circle.fill")
+                                        .font(.system(size: 120))
+                                        .foregroundColor(.blue)
                                 }
-                                .padding(.horizontal)
+                                
+                                VStack(spacing: 12) {
+                                    // Name Section
+                                    if isEditing {
+                                        HStack(spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("Nombre")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                                    .fontWeight(.medium)
+                                                TextField("Nombre", text: $editedFirstName)
+                                                    .textFieldStyle(.roundedBorder)
+                                                    .font(.title3)
+                                            }
+                                            
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("Apellido")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                                    .fontWeight(.medium)
+                                                TextField("Apellido", text: $editedLastName)
+                                                    .textFieldStyle(.roundedBorder)
+                                                    .font(.title3)
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                    } else {
+                                        Text(authManager.currentUser?.displayName ?? "Usuario")
+                                            .font(.system(size: 28, weight: .bold))
+                                            .foregroundColor(.primary)
+                                    }
+                                    
+                                    // Username Section
+                                    if isEditing {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Nombre de usuario")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .fontWeight(.medium)
+                                            HStack {
+                                                Text("@")
+                                                    .foregroundColor(.secondary)
+                                                TextField("usuario", text: $editedUsername)
+                                                    .textFieldStyle(.roundedBorder)
+                                                    .autocapitalization(.none)
+                                                    .disableAutocorrection(true)
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                    } else {
+                                        Text("@\(authManager.currentUser?.username ?? "usuario")")
+                                            .font(.title3)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            
+                            // User Details
+                            VStack(spacing: 16) {
+                                // Email
+                                if let email = authManager.currentUser?.email {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Correo electrónico")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .fontWeight(.medium)
+                                        Text(email)
+                                            .font(.body)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal)
+                                }
+                                
+                                // User Role
+                                if let role = authManager.currentUser?.role {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Rol")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .fontWeight(.medium)
+                                        Text(role.rawValue.capitalized == "User" ? "Usuario" : "Administrador")
+                                            .font(.body)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal)
+                                }
+                                
+                                // Account Status
+                                if let isActive = authManager.currentUser?.isActive {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Estado de cuenta")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .fontWeight(.medium)
+                                        HStack {
+                                            Circle()
+                                                .fill(isActive ? Color.green : Color.red)
+                                                .frame(width: 8, height: 8)
+                                            Text(isActive ? "Activa" : "Inactiva")
+                                                .font(.body)
+                                                .foregroundColor(isActive ? .green : .red)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal)
+                                }
+                                
+                                // Member Since
+                                if let createdAt = authManager.currentUser?.createdAt {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Miembro desde")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .fontWeight(.medium)
+                                        Text(createdAt.formatted(.dateTime.month(.wide).year()))
+                                            .font(.body)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal)
+                                }
                             }
                         }
+                        .padding(24)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
+                        .padding(.horizontal, 20)
+                        
+                        // Sign Out Button
+                        Button(action: {
+                            Task {
+                                do {
+                                    try await authManager.signOut()
+                                } catch {
+                                    print("Sign out error: \(error)")
+                                }
+                            }
+                        }) {
+                            Text("Cerrar Sesión")
+                                .font(.headline)
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        Spacer(minLength: 40)
                     }
-                    .padding(.vertical)
-
-                    // Sign Out Button
-                    Button(action: {
-                        // Logout action would go here
-                    }) {
-                        Text("Sign Out")
-                            .foregroundColor(.red)
-                            .fontWeight(.medium)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(12)
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
+                    .padding(.vertical, 20)
                 }
             }
-            .navigationTitle("Profile")
+            .navigationTitle("Perfil")
             .navigationBarTitleDisplayMode(.inline)
-            .background(Color(.systemGroupedBackground))
+            .navigationBarItems(
+                trailing: HStack {
+                    if isEditing {
+                        Button("Cancelar") {
+                            cancelEditing()
+                        }
+                        .foregroundColor(.red)
+                        
+                        Button(action: {
+                            Task { await saveProfile() }
+                        }) {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            } else {
+                                Text("Guardar")
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        .disabled(isLoading)
+                    } else {
+                        Button("Editar") {
+                            startEditing()
+                        }
+                    }
+                }
+            )
+            .navigationTitle("Perfil")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
-}
-
-struct ProfileMenuItem: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 24, height: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
-                .font(.caption)
+    
+    
+    struct ProfileView_Previews: PreviewProvider {
+        static var previews: some View {
+            ProfileView()
         }
-        .padding()
-    }
-}
-
-struct AchievementBadge: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let earned: Bool
-
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(earned ? color.opacity(0.2) : Color.gray.opacity(0.2))
-                    .frame(width: 50, height: 50)
-                Image(systemName: icon)
-                    .foregroundColor(earned ? color : .gray)
-                    .font(.title2)
-            }
-
-            Text(title)
-                .font(.caption)
-                .foregroundColor(earned ? .primary : .secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(width: 80)
-    }
-}
-
-struct ProfileView_Previews: PreviewProvider {
-    static var previews: some View {
-        ProfileView()
     }
 }

@@ -17,7 +17,7 @@ nonisolated struct Block: BaseModel, Sendable {
     let createdAt: Date
     let updatedAt: Date
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case id = "block_id"
         case name, description
         case blockType = "block_type"

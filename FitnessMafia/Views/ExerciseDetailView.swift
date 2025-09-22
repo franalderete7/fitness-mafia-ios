@@ -11,31 +11,15 @@ import Combine
 
 // Extension to add computed properties to Exercise for detail view
 extension Exercise {
-    var repsSuggestion: String {
-        switch difficultyLevel {
-        case .beginner: return "3 series de 10-15 repeticiones"
-        case .intermediate: return "4 series de 8-12 repeticiones"
-        case .advanced: return "4-5 series de 6-8 repeticiones"
-        }
-    }
-
-    var restTimeSuggestion: String {
-        switch difficultyLevel {
-        case .beginner: return "60-90 segundos"
-        case .intermediate: return "90-120 segundos"
-        case .advanced: return "120-180 segundos"
-        }
-    }
-
-    var weightSuggestion: String? {
-        switch equipmentNeeded.first {
-        case "Barbell", "Dumbbells":
-            switch difficultyLevel {
-            case .beginner: return "Peso ligero a moderado"
-            case .intermediate: return "Peso moderado a pesado"
-            case .advanced: return "Peso pesado"
-            }
-        default: return nil
+    // Format default duration from schema field
+    var formattedDefaultDuration: String? {
+        guard let seconds = defaultDurationSeconds else { return nil }
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        if minutes > 0 {
+            return "\(minutes)min \(remainingSeconds)s"
+        } else {
+            return "\(remainingSeconds)s"
         }
     }
 
@@ -134,171 +118,98 @@ struct ExerciseDetailView: View {
                 
                 // Exercise Information - takes remaining space
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(exercise.name)
-                            .font(.system(size: 24))
-                            .foregroundColor(.black)
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        HStack(spacing: 1) {
-                            Text(exercise.repsSuggestion)
-                                .foregroundColor(.gray)
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Title and meta
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(exercise.name)
+                                .font(.title2)
                                 .fontWeight(.bold)
-                                .font(.system(size: 13))
-                            
-                            Text(" - descanso \(exercise.restTimeSuggestion)")
-                                .foregroundColor(.gray)
-                                .fontWeight(.bold)
-                                .font(.system(size: 13))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        VStack(spacing: 2) {
-                            Text("Dificultad")
-                                .font(.system(size: 15))
-                                .foregroundColor(.gray)
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            HStack {
-                                Text(exercise.difficultySpanish.uppercased())
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 4)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.white)
-                                    .background(Color.black)
-                                    .cornerRadius(4)
+                                .foregroundColor(.primary)
+                            if let duration = exercise.formattedDefaultDuration {
+                                Label("Duración por defecto: \(duration)", systemImage: "clock")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 2)
                         }
-                        .padding(.top, 10)
-                        
-                        if !exercise.translatedEquipment.isEmpty {
-                            VStack(spacing: 2) {
-                                Text("Equipos")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(.gray)
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
-                                    ForEach(exercise.translatedEquipment, id: \.self) { equipment in
-                                        Text(equipment.uppercased())
-                                            .fontWeight(.bold)
-                                            .padding(.horizontal, 7)
-                                            .padding(.vertical, 4)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.white)
-                                            .background(Color.black)
-                                            .cornerRadius(4)
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.8)
-                                    }
-                                }
-                                .padding(.top, 2)
-                            }
-                            .padding(.top, 10)
-                        }
-                        
-                        VStack(spacing: 2) {
-                            Text("Grupos musculares")
-                                .font(.system(size: 15))
-                                .foregroundColor(.gray)
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
-                                ForEach(exercise.translatedMuscleGroups, id: \.self) { muscle in
-                                    Text(muscle.uppercased())
-                                        .fontWeight(.bold)
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 4)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.white)
-                                        .background(Color.black)
-                                        .cornerRadius(4)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                }
-                            }
-                            .padding(.top, 2)
-                        }
-                        .padding(.top, 10)
-                        
-                        VStack(spacing: 2) {
-                            Text("Categoría")
-                                .font(.system(size: 15))
-                                .foregroundColor(.gray)
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            HStack {
-                                Text(exercise.categoryNameSpanish.uppercased())
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 4)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.white)
-                                    .background(Color.black)
-                                    .cornerRadius(4)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 2)
-                        }
-                        .padding(.top, 10)
-                        
-                        if let weight = exercise.weightSuggestion {
-                            VStack(spacing: 2) {
-                                Text("Peso")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(.gray)
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Text(weight.uppercased())
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 4)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.white)
-                                    .background(Color.black)
-                                    .cornerRadius(4)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.top, 2)
-                            }
-                            .padding(.top, 10)
-                        }
-                        
-                        if let description = exercise.description, !description.isEmpty {
-                            VStack(spacing: 2) {
-                                Text("Descripción")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(.gray)
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Text(description)
-                                    .font(.system(size: 14))
+                        .padding(.horizontal)
+
+                        // Info card styled consistently
+                        VStack(alignment: .leading, spacing: 16) {
+                            // Difficulty
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Dificultad")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.black)
+                                Text(exercise.difficultySpanish)
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.top, 2)
                             }
-                            .padding(.top, 10)
+
+                            // Equipment (comma separated)
+                            if !exercise.translatedEquipment.isEmpty {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Equipos")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .fontWeight(.semibold)
+                                    Text(exercise.translatedEquipment.joined(separator: ", "))
+                                        .font(.subheadline)
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+
+                            // Muscle groups (comma separated)
+                            if !exercise.translatedMuscleGroups.isEmpty {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Grupos musculares")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .fontWeight(.semibold)
+                                    Text(exercise.translatedMuscleGroups.joined(separator: ", "))
+                                        .font(.subheadline)
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+
+                            // Category
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Categoría")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .fontWeight(.semibold)
+                                Text(exercise.categoryNameSpanishDetail)
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+
+                            // Description
+                            if let description = exercise.description, !description.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Descripción")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .fontWeight(.semibold)
+                                    Text(description)
+                                        .font(.body)
+                                        .foregroundColor(.primary)
+                                }
+                            }
                         }
-                        
-                        Spacer() // Fill remaining space
+                        .padding(16)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                 }
             }
             .frame(maxHeight: geometry.size.height)
-            .background(Color.white.edgesIgnoringSafeArea(.all))
+            .background(Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all))
             .navigationTitle(exercise.name)
             .navigationBarTitleDisplayMode(.inline)
             .edgesIgnoringSafeArea(.bottom) // Ensure full screen coverage
