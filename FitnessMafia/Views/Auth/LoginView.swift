@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import LocalAuthentication
+import Security
 
 struct LoginView: View {
-    @StateObject private var authManager = AuthManager()
+    @EnvironmentObject var authManager: AuthManager
 
     @State private var isSignUp = false
     @State private var email = ""
@@ -17,6 +19,9 @@ struct LoginView: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var showSignupSuccessAlert = false
+    @FocusState private var emailFocused: Bool
+    @FocusState private var passwordFocused: Bool
+    @State private var didPromptBiometrics = false
 
     var body: some View {
         ZStack {
@@ -81,6 +86,8 @@ struct LoginView: View {
                                     .keyboardType(.emailAddress)
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
+                                    .textContentType(.username)
+                                    .focused($emailFocused)
                                     .padding()
                                     .background(Color(.secondarySystemBackground))
                                     .cornerRadius(12)
@@ -99,6 +106,8 @@ struct LoginView: View {
 
                                 SecureField("Mínimo 6 caracteres", text: $password)
                                     .textFieldStyle(.plain)
+                                    .textContentType(.password)
+                                    .focused($passwordFocused)
                                     .padding()
                                     .background(Color(.secondarySystemBackground))
                                     .cornerRadius(12)
@@ -233,6 +242,12 @@ struct LoginView: View {
                 }
             }
         }
+        .onChange(of: emailFocused) { focused in
+            if focused { Task { await attemptBiometricAutofillIfNeeded() } }
+        }
+        .onChange(of: passwordFocused) { focused in
+            if focused { Task { await attemptBiometricAutofillIfNeeded() } }
+        }
         .alert("Cuenta creada exitosamente", isPresented: $showSignupSuccessAlert) {
             Button("Entendido", role: .cancel) { }
         } message: {
@@ -268,12 +283,86 @@ struct LoginView: View {
                     showSignupSuccessAlert = true
                 } else {
                     try await authManager.signIn(email: email, password: password)
+                    // On successful login, save credentials to Keychain with biometry
+                    saveCredentialsToKeychain()
                 }
             } catch {
                 // Error is handled by AuthManager and displayed in UI
                 print("Auth error: \(error)")
             }
         }
+    }
+
+    // MARK: - Face ID Autofill
+    private func attemptBiometricAutofillIfNeeded() async {
+        guard !didPromptBiometrics else { return }
+        guard email.isEmpty || password.isEmpty else { return }
+        let context = LAContext()
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            didPromptBiometrics = true
+            let ok = try? await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Autocompletar con Face ID")
+            if ok == true {
+                if let creds = retrieveCredentialsFromKeychain(context: context) {
+                    if email.isEmpty { email = creds.email }
+                    if password.isEmpty { password = creds.password }
+                }
+            }
+        }
+    }
+
+    private func saveCredentialsToKeychain() {
+        guard !email.isEmpty, !password.isEmpty else { return }
+        let service = "com.vibelabs.fitnessmafia.credentials"
+        let account = "default"
+
+        // Delete existing item
+        let queryDelete: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(queryDelete as CFDictionary)
+
+        // Access control requiring current Face ID set
+        var error: Unmanaged<CFError>?
+        guard let access = SecAccessControlCreateWithFlags(nil, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, SecAccessControlCreateFlags.biometryCurrentSet, &error) else {
+            return
+        }
+
+        let passwordData = password.data(using: .utf8) ?? Data()
+        let attrs: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrAccessControl as String: access,
+            kSecValueData as String: passwordData,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIAllow
+        ]
+        SecItemAdd(attrs as CFDictionary, nil)
+
+        // Save email separately (unencrypted credential metadata)
+        UserDefaults.standard.set(email, forKey: "last_login_email")
+    }
+
+    private func retrieveCredentialsFromKeychain(context: LAContext) -> (email: String, password: String)? {
+        let service = "com.vibelabs.fitnessmafia.credentials"
+        let account = "default"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecUseAuthenticationContext as String: context,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data, let pwd = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        let savedEmail = UserDefaults.standard.string(forKey: "last_login_email") ?? ""
+        return (email: savedEmail, password: pwd)
     }
 }
 

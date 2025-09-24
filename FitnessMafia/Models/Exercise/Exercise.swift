@@ -18,7 +18,7 @@ nonisolated struct Exercise: BaseModel, Sendable {
     let equipmentNeeded: [String]
     let difficultyLevel: DifficultyLevel
     let defaultDurationSeconds: Int?
-    let createdBy: Int
+    let createdBy: Int?
     let createdAt: Date
     let updatedAt: Date
 

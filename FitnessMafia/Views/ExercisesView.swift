@@ -10,6 +10,7 @@ import SwiftUI
 // Extension to add color and computed properties to Exercise
 extension Exercise {
     var displayColor: Color {
+        guard let categoryId = categoryId else { return .gray }
         switch categoryId {
         case 1: return .blue      // Chest
         case 2: return .green     // Back
@@ -24,6 +25,7 @@ extension Exercise {
     }
 
     var categoryName: String {
+        guard let categoryId = categoryId else { return "Other" }
         switch categoryId {
         case 1: return "Chest"
         case 2: return "Back"
@@ -38,6 +40,7 @@ extension Exercise {
     }
 
     var categoryNameSpanish: String {
+        guard let categoryId = categoryId else { return "Otro" }
         switch categoryId {
         case 1: return "Pecho"
         case 2: return "Espalda"
@@ -64,87 +67,6 @@ extension Exercise {
     }
 }
 
-struct HorizontalExerciseCard: View {
-    let exercise: Exercise
-
-    var body: some View {
-        HStack(spacing: 16) {
-            // Exercise Image - Now shows actual image from database
-            ZStack {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(1, contentMode: .fit)
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(8)
-
-                if let imageUrl = exercise.imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                                .tint(.white)
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        case .failure(_):
-                            // Fallback to icon if image fails to load
-                            Image(systemName: "dumbbell.fill")
-                                .font(.title2)
-                                .foregroundColor(exercise.displayColor)
-                        @unknown default:
-                            Image(systemName: "dumbbell.fill")
-                                .font(.title2)
-                                .foregroundColor(exercise.displayColor)
-                        }
-                    }
-                } else {
-                    // No image URL provided, show icon
-                    Image(systemName: "dumbbell.fill")
-                        .font(.title2)
-                        .foregroundColor(exercise.displayColor)
-                }
-            }
-
-            // Exercise Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(exercise.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-
-                Text(exercise.categoryNameSpanish)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                HStack(spacing: 12) {
-                    Label(exercise.difficultyLevel.rawValue.capitalized,
-                          systemImage: "chart.bar")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    if let duration = exercise.formattedDuration {
-                        Label(duration, systemImage: "clock")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
-                .font(.caption)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-    }
-}
-
 struct ExercisesView: View {
     @State private var selectedExercise: Exercise? = nil
     @State private var searchText = ""
@@ -157,7 +79,7 @@ struct ExercisesView: View {
     private let exerciseService = ExerciseService()
 
     var filteredExercises: [Exercise] {
-        let filtered = exercises.filter { exercise in
+        exercises.filter { exercise in
             let matchesSearch = searchText.isEmpty || exercise.name.localizedCaseInsensitiveContains(searchText)
 
             // For "Todos", show all exercises
@@ -169,9 +91,6 @@ struct ExercisesView: View {
             let matchesCategory = exercise.categoryNameSpanish == selectedCategory
             return matchesSearch && matchesCategory
         }
-
-        print("DEBUG: Filtering - selectedCategory: '\(selectedCategory)', searchText: '\(searchText)', exercises: \(exercises.count), filtered: \(filtered.count)")
-        return filtered
     }
 
     var categoryNames: [String] {
@@ -205,22 +124,19 @@ struct ExercisesView: View {
             let exercises = try await exerciseService.fetchAll()
             let categories = try await exerciseService.getExerciseCategories() ?? []
 
-            print("DEBUG: Loaded \(exercises.count) exercises and \(categories.count) categories")
 
             await MainActor.run {
                 self.exercises = exercises
                 self.categories = categories
                 self.isLoading = false
-                print("DEBUG: UI updated - exercises count: \(self.exercises.count), categories count: \(self.categories.count)")
+
             }
         } catch let error as DatabaseError {
-            print("DEBUG: DatabaseError - \(error.localizedDescription)")
             await MainActor.run {
                 self.error = error
                 self.isLoading = false
             }
         } catch {
-            print("DEBUG: Unknown error - \(error.localizedDescription)")
             await MainActor.run {
                 self.error = .unknownError(error)
                 self.isLoading = false
@@ -317,14 +233,89 @@ struct ExercisesView: View {
                     else {
                         VStack(spacing: 16) {
 
-                            ForEach(filteredExercises) { exercise in
-                                HorizontalExerciseCard(exercise: exercise)
-                                    .onTapGesture {
-                                        selectedExercise = exercise
+                            ForEach(filteredExercises, id: \.id) { exercise in
+                                HStack(spacing: 16) {
+                                    // Safety check - ensure exercise has required data
+                                    if exercise.name.isEmpty {
+                                        EmptyView()
+                                    } else {
+                                        // Exercise Image - Now shows actual image from database
+                                        ZStack {
+                                            Rectangle()
+                                                .fill(Color.gray.opacity(0.2))
+                                                .aspectRatio(1, contentMode: .fit)
+                                                .frame(width: 80, height: 80)
+                                                .cornerRadius(8)
+
+                                            if let imageUrl = exercise.imageUrl, let url = URL(string: imageUrl), !imageUrl.isEmpty {
+                                                AsyncImage(url: url) { phase in
+                                                    switch phase {
+                                                    case .empty:
+                                                        ProgressView()
+                                                            .tint(.white)
+                                                    case .success(let image):
+                                                        image
+                                                            .resizable()
+                                                            .aspectRatio(contentMode: .fill)
+                                                            .frame(width: 80, height: 80)
+                                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                                    case .failure(_):
+                                                        // Fallback to icon if image fails to load
+                                                        Image(systemName: "dumbbell.fill")
+                                                            .font(.title2)
+                                                            .foregroundColor(exercise.displayColor)
+                                                    @unknown default:
+                                                        Image(systemName: "dumbbell.fill")
+                                                            .font(.title2)
+                                                            .foregroundColor(exercise.displayColor)
+                                                    }
+                                                }
+                                            } else {
+                                                // No image URL provided, show icon
+                                                Image(systemName: "dumbbell.fill")
+                                                    .font(.title2)
+                                                    .foregroundColor(exercise.displayColor)
+                                            }
+                                        }
+
+                                        // Exercise Info
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(exercise.name)
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+
+                                            Text(exercise.categoryNameSpanish)
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+
+                                            HStack(spacing: 12) {
+                                                Label(exercise.difficultyLevel.rawValue.capitalized,
+                                                      systemImage: "chart.bar")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+
+                                                if let duration = exercise.formattedDuration {
+                                                    Label(duration, systemImage: "clock")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
                                     }
-                                    .onAppear {
-                                        print("DEBUG: Rendering exercise: \(exercise.name), category: \(exercise.categoryNameSpanish)")
-                                    }
+                                }
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                                .onTapGesture {
+                                    selectedExercise = exercise
+                                }
                             }
                         }
                         .padding(.horizontal)

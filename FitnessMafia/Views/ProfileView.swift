@@ -18,6 +18,8 @@ struct ProfileView: View {
     @State private var isLoading = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showImagePicker = false
+    @State private var pickedImage: UIImage?
     
     
     private func startEditing() {
@@ -38,12 +40,17 @@ struct ProfileView: View {
         do {
             let updatedUser = User(
                 id: userId,
+                appUserId: authManager.currentUser?.appUserId ?? UserDefaults.standard.string(forKey: "app_user_id") ?? UUID().uuidString,
                 username: editedUsername,
                 email: authManager.currentUser?.email ?? "",
                 role: authManager.currentUser?.role ?? .user,
                 firstName: editedFirstName.isEmpty ? nil : editedFirstName,
                 lastName: editedLastName.isEmpty ? nil : editedLastName,
+                imageUrl: authManager.currentUser?.imageUrl,
                 isActive: authManager.currentUser?.isActive ?? true,
+                isPremium: authManager.currentUser?.isPremium ?? false,
+                premiumExpiresAt: authManager.currentUser?.premiumExpiresAt,
+                premiumWillRenew: authManager.currentUser?.premiumWillRenew,
                 createdAt: authManager.currentUser?.createdAt ?? Date(),
                 updatedAt: Date()
             )
@@ -64,6 +71,59 @@ struct ProfileView: View {
         }
         
         isLoading = false
+    }
+
+    // MARK: - Upload profile image to Supabase Storage and update user
+    private func uploadProfileImage(_ image: UIImage) async {
+        guard let data = image.jpegData(compressionQuality: 0.85) else { return }
+        guard let user = authManager.currentUser else { return }
+
+        do {
+            let fileName = "\(user.id)-\(Int(Date().timeIntervalSince1970)).jpg"
+            let path = "\(fileName)"
+
+            // Upload to storage bucket 'profile-images'
+            _ = try await SupabaseConfig.shared.client.storage
+                .from("profile-images")
+                .upload(path, data: data, options: .init(contentType: "image/jpeg", upsert: true))
+
+            // Build public URL
+            let publicURL = try SupabaseConfig.shared.client.storage
+                .from("profile-images")
+                .getPublicURL(path: path)
+
+            // Update user image_url
+            let updatedUser = User(
+                id: user.id,
+                appUserId: user.appUserId,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                imageUrl: publicURL.absoluteString,
+                isActive: user.isActive,
+                isPremium: user.isPremium,
+                premiumExpiresAt: user.premiumExpiresAt,
+                premiumWillRenew: user.premiumWillRenew,
+                createdAt: user.createdAt,
+                updatedAt: Date()
+            )
+
+            try await SupabaseConfig.shared.client
+                .from("users")
+                .update(updatedUser)
+                .eq("user_id", value: user.id)
+                .execute()
+
+            await authManager.loadUserProfile()
+        } catch {
+            print("Upload error: \(error)")
+            await MainActor.run {
+                self.showError = true
+                self.errorMessage = "No se pudo subir la imagen. Intenta nuevamente."
+            }
+        }
     }
     
     private func cancelEditing() {
@@ -101,10 +161,45 @@ struct ProfileView: View {
                                     Circle()
                                         .fill(Color.blue.opacity(0.15))
                                         .frame(width: 120, height: 120)
-                                    
-                                    Image(systemName: "person.circle.fill")
-                                        .font(.system(size: 120))
-                                        .foregroundColor(.blue)
+
+                                    if let urlString = authManager.currentUser?.imageUrl, let url = URL(string: urlString) {
+                                        AsyncImage(url: url) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image.resizable().scaledToFill()
+                                                    .frame(width: 120, height: 120)
+                                                    .clipShape(Circle())
+                                            case .failure:
+                                                Image(systemName: "person.circle.fill")
+                                                    .font(.system(size: 120))
+                                                    .foregroundColor(.blue)
+                                            case .empty:
+                                                ProgressView().tint(.blue)
+                                            @unknown default:
+                                                Image(systemName: "person.circle.fill")
+                                                    .font(.system(size: 120))
+                                                    .foregroundColor(.blue)
+                                            }
+                                        }
+                                    } else {
+                                        Image(systemName: "person.circle.fill")
+                                            .font(.system(size: 120))
+                                            .foregroundColor(.blue)
+                                    }
+
+                                    VStack {
+                                        Spacer()
+                                        HStack { Spacer()
+                                            Button(action: { showImagePicker = true }) {
+                                                Image(systemName: "camera.fill")
+                                                    .foregroundColor(.white)
+                                                    .padding(8)
+                                                    .background(Color.blue)
+                                                    .clipShape(Circle())
+                                            }
+                                        }
+                                    }
+                                    .frame(width: 120, height: 120)
                                 }
                                 
                                 VStack(spacing: 12) {
@@ -177,7 +272,6 @@ struct ProfileView: View {
                                             .foregroundColor(.primary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal)
                                 }
                                 
                                 // User Role
@@ -192,7 +286,6 @@ struct ProfileView: View {
                                             .foregroundColor(.primary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal)
                                 }
                                 
                                 // Account Status
@@ -212,7 +305,27 @@ struct ProfileView: View {
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal)
+                                }
+
+                                // Subscription
+                                if let isPremium = authManager.currentUser?.isPremium {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Suscripción")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .fontWeight(.medium)
+                        HStack(spacing: 8) {
+                            Text(isPremium ? "Pro" : "Free")
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(isPremium ? .blue : .secondary)
+                            if isPremium, let expires = authManager.currentUser?.premiumExpiresAt {
+                                Text("· Renueva \(expires.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 
                                 // Member Since
@@ -227,11 +340,10 @@ struct ProfileView: View {
                                             .foregroundColor(.primary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal)
                                 }
                             }
                         }
-                        .padding(24)
+                        .padding(EdgeInsets(top: 24, leading: 0, bottom: 24, trailing: 24))
                         .background(Color(.systemBackground))
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
@@ -264,6 +376,14 @@ struct ProfileView: View {
             }
             .navigationTitle("Perfil")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(image: $pickedImage)
+                    .ignoresSafeArea()
+            }
+            .onChange(of: pickedImage) { _, newValue in
+                guard let img = newValue else { return }
+                Task { await uploadProfileImage(img) }
+            }
             .navigationBarItems(
                 trailing: HStack {
                     if isEditing {
@@ -300,6 +420,41 @@ struct ProfileView: View {
     struct ProfileView_Previews: PreviewProvider {
         static var previews: some View {
             ProfileView()
+        }
+    }
+}
+
+// MARK: - Image Picker Helper
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.allowsEditing = true
+        picker.sourceType = .photoLibrary
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: ImagePicker
+        init(_ parent: ImagePicker) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let edited = info[.editedImage] as? UIImage {
+                parent.image = edited
+            } else if let original = info[.originalImage] as? UIImage {
+                parent.image = original
+            }
+            picker.dismiss(animated: true)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
         }
     }
 }

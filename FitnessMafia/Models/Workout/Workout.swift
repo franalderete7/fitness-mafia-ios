@@ -15,7 +15,7 @@ nonisolated struct Workout: BaseModel, Sendable {
     let difficultyLevel: DifficultyLevel
     let workoutType: String?
     let isTemplate: Bool
-    let createdBy: Int
+    let createdBy: Int?
     let createdAt: Date
     let updatedAt: Date
 

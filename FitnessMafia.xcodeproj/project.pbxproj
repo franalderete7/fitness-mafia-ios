@@ -10,13 +10,17 @@
 		D15355192E7CBE2600847F5D /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = D15355182E7CBE2600847F5D /* Auth */; };
 		D153551B2E7CBE2600847F5D /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = D153551A2E7CBE2600847F5D /* Functions */; };
 		D153551D2E7CBE2600847F5D /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = D153551C2E7CBE2600847F5D /* PostgREST */; };
-		D153551F2E7CBE2600847F5D /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = D153551E2E7CBE2600847F5D /* Realtime */; };
 		D15355212E7CBE2600847F5D /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = D15355202E7CBE2600847F5D /* Storage */; };
 		D15355AA2E7CC10100847F5D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D15355A92E7CC10100847F5D /* Supabase */; };
+		D15AF2462E822A370044EAA6 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D15AF2452E822A370044EAA6 /* StoreKit.framework */; };
+		D15AF24C2E822D440044EAA6 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = D15AF24B2E822D440044EAA6 /* RevenueCat */; };
+		D15AF2542E82D6160044EAA6 /* FitnessMafiaMove.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D15AF2532E82D6160044EAA6 /* FitnessMafiaMove.storekit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		D15354802E7C68AE00847F5D /* FitnessMafia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitnessMafia.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D15AF2452E822A370044EAA6 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		D15AF2532E82D6160044EAA6 /* FitnessMafiaMove.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = FitnessMafiaMove.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -33,11 +37,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				D153551D2E7CBE2600847F5D /* PostgREST in Frameworks */,
+				D15AF2462E822A370044EAA6 /* StoreKit.framework in Frameworks */,
 				D153551B2E7CBE2600847F5D /* Functions in Frameworks */,
 				D15355AA2E7CC10100847F5D /* Supabase in Frameworks */,
 				D15355192E7CBE2600847F5D /* Auth in Frameworks */,
+				D15AF24C2E822D440044EAA6 /* RevenueCat in Frameworks */,
 				D15355212E7CBE2600847F5D /* Storage in Frameworks */,
-				D153551F2E7CBE2600847F5D /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -47,6 +52,7 @@
 		D15354772E7C68AE00847F5D = {
 			isa = PBXGroup;
 			children = (
+				D15AF2532E82D6160044EAA6 /* FitnessMafiaMove.storekit */,
 				D15354822E7C68AE00847F5D /* FitnessMafia */,
 				D15355A82E7CC10100847F5D /* Frameworks */,
 				D15354812E7C68AE00847F5D /* Products */,
@@ -64,6 +70,7 @@
 		D15355A82E7CC10100847F5D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D15AF2452E822A370044EAA6 /* StoreKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -94,6 +101,7 @@
 				D153551E2E7CBE2600847F5D /* Realtime */,
 				D15355202E7CBE2600847F5D /* Storage */,
 				D15355A92E7CC10100847F5D /* Supabase */,
+				D15AF24B2E822D440044EAA6 /* RevenueCat */,
 			);
 			productName = FitnessMafia;
 			productReference = D15354802E7C68AE00847F5D /* FitnessMafia.app */;
@@ -125,6 +133,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D15355172E7CBE2600847F5D /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				D15AF2482E822D440044EAA6 /* XCRemoteSwiftPackageReference "purchases-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D15354812E7C68AE00847F5D /* Products */;
@@ -141,6 +150,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D15AF2542E82D6160044EAA6 /* FitnessMafiaMove.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,15 +294,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = FitnessMafia/FitnessMafia.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WYN4MP6QF4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Usamos Face ID para completar tu inicio de sesión de forma segura.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -316,15 +329,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = FitnessMafia/FitnessMafia.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WYN4MP6QF4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Usamos Face ID para completar tu inicio de sesión de forma segura.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -374,6 +390,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		D15AF2482E822D440044EAA6 /* XCRemoteSwiftPackageReference "purchases-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.39.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -406,6 +430,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D15355172E7CBE2600847F5D /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		D15AF24B2E822D440044EAA6 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D15AF2482E822D440044EAA6 /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -30,7 +30,7 @@ extension Program {
     }
 
     var subtitleText: String {
-        if let programType = programType {
+        if programType != nil {
             return programTypeSpanish
         }
         return isTemplate ? "Programa de plantilla" : "Programa personalizado"
@@ -49,6 +49,7 @@ extension Program {
 }
 
 struct ProgramCard: View {
+    @EnvironmentObject var authManager: AuthManager
     let program: Program
 
     var body: some View {
@@ -66,8 +67,13 @@ struct ProgramCard: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.secondary)
+                if authManager.currentUser?.isPremium != true {
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.yellow)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                }
             }
 
             HStack(spacing: 16) {
@@ -83,8 +89,14 @@ struct ProgramCard: View {
         .background(program.displayColor.opacity(0.1))
         .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(program.displayColor.opacity(0.2), lineWidth: 1)
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(program.displayColor.opacity(0.2), lineWidth: 1)
+                if authManager.currentUser?.isPremium != true {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.black.opacity(0.08))
+                }
+            }
         )
     }
 }
@@ -95,6 +107,8 @@ struct ProgramsView: View {
     @State private var error: DatabaseError?
     @State private var searchText = ""
     @State private var selectedCategory = "Todos"
+    @State private var showPaywall = false
+    @EnvironmentObject var authManager: AuthManager
 
     private let programService = ProgramService()
 
@@ -254,10 +268,23 @@ struct ProgramsView: View {
                         // Programs List
                         VStack(spacing: 16) {
                             ForEach(filteredPrograms) { program in
-                                NavigationLink(destination: ProgramDetailView(program: program)) {
-                                    ProgramCard(program: program)
+                                Group {
+                                    if authManager.currentUser?.isPremium == true {
+                                        NavigationLink(destination: ProgramDetailView(program: program)) {
+                                            ProgramCard(program: program)
+                                                .environmentObject(authManager)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    } else {
+                                        Button {
+                                            showPaywall = true
+                                        } label: {
+                                            ProgramCard(program: program)
+                                                .environmentObject(authManager)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
                                 }
-                                .buttonStyle(PlainButtonStyle())
                             }
                         }
                         .padding(.horizontal)
@@ -268,6 +295,12 @@ struct ProgramsView: View {
             .navigationTitle("Programas")
             .navigationBarTitleDisplayMode(.inline)
             .background(Color(.systemGroupedBackground))
+            .fullScreenCover(isPresented: $showPaywall, onDismiss: {
+                // Refresh user to reflect new premium status if purchased
+                Task { await authManager.loadUserProfile() }
+            }) {
+                PaywallView()
+            }
             .task {
                 await loadData()
             }

@@ -79,7 +79,7 @@ extension SupabaseService where Self: CrudService, Model.ID == Int {
     /// Default implementation for deleting records
     func delete(_ id: Model.ID) async throws where Model.ID == Int {
         try await executeQuery {
-            try await self.client
+            _ = try await self.client
                 .from(self.tableName)
                 .delete()
                 .eq("id", value: id)

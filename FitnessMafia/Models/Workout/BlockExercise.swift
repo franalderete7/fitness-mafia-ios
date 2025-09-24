@@ -11,7 +11,7 @@ nonisolated struct BlockExerciseID: Hashable, Codable, Sendable {
     let blockId: Int
     let exerciseId: Int
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case blockId = "block_id"
         case exerciseId = "exercise_id"
     }

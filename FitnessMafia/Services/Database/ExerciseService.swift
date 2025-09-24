@@ -87,14 +87,13 @@ final class ExerciseService: SupabaseService, CrudService {
     }
 
     func delete(_ id: Int) async throws {
-        try await Task.detached {
-            try await self.executeQuery {
-                try await self.client
-                    .from(self.tableName)
-                    .delete()
-                    .eq("exercise_id", value: id)
-                    .execute()
-            }
+        try await Task.detached { [client, tableName = self.tableName] in
+            // No value to return; just perform the async call
+            _ = try await client
+                .from(tableName)
+                .delete()
+                .eq("exercise_id", value: id)
+                .execute()
         }.value
     }
 

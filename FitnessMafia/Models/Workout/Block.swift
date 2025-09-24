@@ -13,7 +13,7 @@ nonisolated struct Block: BaseModel, Sendable {
     let description: String?
     let blockType: BlockType
     let restBetweenExercises: Int
-    let createdBy: Int
+    let createdBy: Int?
     let createdAt: Date
     let updatedAt: Date
 

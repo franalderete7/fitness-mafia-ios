@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVKit
+import AVFoundation
 import Combine
 
 // Extension to add computed properties to Exercise for detail view
@@ -34,6 +35,7 @@ extension Exercise {
 
     // Localized category name by id (fallback handled where used)
     var categoryNameSpanishDetail: String {
+        guard let categoryId = categoryId else { return "Otro" }
         switch categoryId {
         case 1: return "Pecho"
         case 2: return "Espalda"
@@ -96,6 +98,13 @@ struct ExerciseDetailView: View {
     @State var isPlaying = false
     @State var isVideoReady = false
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var overlayOpacity: Double = 1.0
+    @State private var fadeInDuration: Double = 1.0
+    @State private var fadeOutDuration: Double = 1.0
+    @State private var fadeOutStarted: Bool = false
+    @State private var timeObserverToken: Any?
+    @State private var timeObserverOwner: AVPlayer?
+    @State private var didSetupPlayback = false
     
     init(exercise: Exercise) {
         self.exercise = exercise
@@ -107,8 +116,14 @@ struct ExerciseDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Video Player - takes 1/3.5 of screen height
                 if isVideoReady {
-                    FullScreenVideoPlayer(player: player)
-                        .frame(height: geometry.size.height / 3.5)
+                    ZStack {
+                        FullScreenVideoPlayer(player: player)
+                        Rectangle()
+                            .fill(Color.black)
+                            .opacity(overlayOpacity)
+                            .allowsHitTesting(false)
+                    }
+                    .frame(height: geometry.size.height / 3.5)
                 } else {
                     ProgressView()
                         .frame(width: geometry.size.width, height: geometry.size.height / 3.5)
@@ -214,20 +229,30 @@ struct ExerciseDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .edgesIgnoringSafeArea(.bottom) // Ensure full screen coverage
             .onAppear {
+                // Avoid double-adding observers when presenting quickly
+                guard !didSetupPlayback else { return }
+                didSetupPlayback = true
                 checkVideoCache()
                 self.player.play()
                 self.isPlaying = true
                 setupVideoPlaybackObserver()
+                addPeriodicTimeObserver()
             }
             .onDisappear {
                 cancellables.removeAll()
                 self.player.seek(to: .zero)
                 self.player.pause()
                 self.isPlaying = false
+                self.overlayOpacity = 1.0
+                removePeriodicTimeObserver()
+                didSetupPlayback = false
             }
             .onReceive(player.publisher(for: \.status)) { status in
                 if status == .readyToPlay {
                     isVideoReady = true
+                    withAnimation(.easeInOut(duration: fadeInDuration)) {
+                        overlayOpacity = 0.0
+                    }
                 }
             }
         }
@@ -245,10 +270,42 @@ struct ExerciseDetailView: View {
     private func setupVideoPlaybackObserver() {
         NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: self.player.currentItem)
             .sink { _ in
+                // Loop, reset fade-out state, and fade back in at restart
                 self.player.seek(to: .zero)
                 self.player.play()
+                self.fadeOutStarted = false
+                withAnimation(.easeInOut(duration: self.fadeInDuration)) {
+                    self.overlayOpacity = 0.0
+                }
             }
             .store(in: &cancellables)
+    }
+
+    private func addPeriodicTimeObserver() {
+        removePeriodicTimeObserver()
+        let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { currentTime in
+            guard let item = self.player.currentItem else { return }
+            let durationSeconds = CMTimeGetSeconds(item.duration)
+            let currentSeconds = CMTimeGetSeconds(currentTime)
+            guard durationSeconds.isFinite && durationSeconds > 0 else { return }
+            let remaining = durationSeconds - currentSeconds
+            if remaining <= self.fadeOutDuration && !self.fadeOutStarted {
+                self.fadeOutStarted = true
+                withAnimation(.easeInOut(duration: self.fadeOutDuration)) {
+                    self.overlayOpacity = 1.0
+                }
+            }
+        }
+        timeObserverOwner = player
+    }
+
+    private func removePeriodicTimeObserver() {
+        if let token = timeObserverToken {
+            (timeObserverOwner ?? player).removeTimeObserver(token)
+            timeObserverToken = nil
+            timeObserverOwner = nil
+        }
     }
 
     private func getVideoFileUrl() -> URL? {
@@ -275,9 +332,11 @@ struct ExerciseDetailView: View {
                 do {
                     try FileManager.default.moveItem(at: location, to: saveUrl)
                     DispatchQueue.main.async {
+                        removePeriodicTimeObserver()
                         self.player = AVPlayer(url: saveUrl)
                         self.isVideoReady = true
                         self.player.play()
+                        addPeriodicTimeObserver()
                     }
                     print("Video successfully cached at: \(saveUrl)")
                 } catch {
@@ -298,6 +357,7 @@ struct ExerciseDetailView: View {
             .appendingPathComponent(videoFileUrl.lastPathComponent)
 
         if cachedVideoUrl.isFileURL && FileManager.default.fileExists(atPath: cachedVideoUrl.path) {
+            removePeriodicTimeObserver()
             self.player = AVPlayer(url: cachedVideoUrl)
             self.isVideoReady = true
             print("Serving video from cache")
@@ -306,6 +366,7 @@ struct ExerciseDetailView: View {
                 print("Invalid video URL")
                 return
             }
+            removePeriodicTimeObserver()
             downloadVideoToCache(from: videoUrl, saveTo: cachedVideoUrl)
             print("Serving video from URL")
         }
